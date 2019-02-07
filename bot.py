@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
-api_key = os.eniron.get('API_KEY')
+api_key = os.environ.get('API_KEY')
 
 
 # get random url for request to api with articles
