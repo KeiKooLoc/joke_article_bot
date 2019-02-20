@@ -2,6 +2,7 @@ from telethon import TelegramClient, events, sync, utils
 from time import sleep
 import unittest
 import logging
+import os
 from bot import messages, keyboard
 
 
