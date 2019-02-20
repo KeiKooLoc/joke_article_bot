@@ -1,6 +1,6 @@
 import logging
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, ParseMode
 import requests
 from random import randint
 import os
@@ -22,29 +22,28 @@ def get_url():
     countries = ['gb', 'us', 'au', 'ca', 'ie', 'nz']
     endpoints = ['https://newsapi.org/v2/top-headlines?'
                  'sources=bbc-news&'
-                 'pageSize=100&'
+                 'pageSize=50&'
                  'language=en&'
                  'apiKey={}'.format(api_key),
 
                  'https://newsapi.org/v2/everything?'
                  'q={}&'
-                 'pageSize=100&'
-                 'language=en&'
+                 'pageSize=50&'
                  'from=2019-02-06&'
                  'sortBy=popularity&'
-                 'apiKey={}'.
-                     format(tags[randint(0, len(tags) - 1)],
-                            api_key),
+                 'apiKey={}'.format(
+                     tags[randint(0, len(tags) - 1)],
+                     api_key),
 
                  'https://newsapi.org/v2/top-headlines?'
                  'country={}&'
-                 'pageSize=100&'
+                 'pageSize=50&'
                  'language=en&'
-                 'apiKey={}'.
-                     format(countries[randint(0, len(countries) - 1)],
-                            api_key)
+                 'apiKey={}'.format(
+                     countries[randint(0, len(countries) - 1)],
+                     api_key)
                  ]
-    return endpoints[randint(0, len(endpoints) -1)]
+    return endpoints[randint(0, len(endpoints) - 1)]
 
 
 # get random article from response
@@ -53,14 +52,13 @@ def get_article(tag=None):
     if tag:
         endpoint = 'https://newsapi.org/v2/everything?' \
                    'q={}&' \
-                   'pageSize=100&' \
-                   'language=en&' \
+                   'pageSize=50&' \
                    'sortBy=relevancy&' \
                    'apiKey={}'.format(tag, api_key)
     res = requests.get(endpoint).json()
     total = len(res['articles'])
     if total == 0 or res['status'] == 'error':
-        return "I can't find anything, try another tag"
+        return 'error'
     data = {'title': '',
             'text': '',
             'img_url': '',
@@ -75,17 +73,33 @@ def get_article(tag=None):
     return data
 
 
-keyboard = [['/joke'],['/article']]
+keyboard = [['/joke'], ['/article']]
 reply_markup = ReplyKeyboardMarkup(keyboard)
 
 
+messages = {'start': 'I can make you laugh or tell you '
+                     'something interesting, choose what you want. '
+                     'You can also find an article by tag. '
+                     'Just add your tag to /article command '
+                     'For example: /article nasa news.',
+
+            'unknown_command': "Sorry, I didn't understand that command. "
+                               "Send /article or /joke or /article "
+                               "with your tag after.",
+
+            'text': 'I do not know how to communicate.'
+                    'But I can make you laugh or tell you '
+                    'something interesting, choose what you want. '
+                    'You can also find an article by tag. '
+                    'Just add your tag to /article command. '
+                    'For example: /article nasa news.',
+
+            'no_article': "I can't find anything, try another tag"
+            }
+
+
 def start(bot, update):
-    update.message.reply_text('I can make you laugh or tell you '
-                              'something interesting, choose what you want. '
-                              'You can also find an article by tag. '
-                              'Just add your tag to /article command '
-                              'For example: /article nasa news',
-                              reply_markup=reply_markup)
+    update.message.reply_text(messages['start'], reply_markup=reply_markup)
 
 
 def joke(bot, update):
@@ -99,24 +113,30 @@ def article(bot, update, args):
         article = get_article()
     else:
         article = get_article(' '.join(args))
-    if type(article) == str:
-        bot.send_message(chat_id=update.message.chat_id, text=article)
+    if article == 'error':
+        bot.send_message(chat_id=update.message.chat_id, text=messages['no_article'])
     else:
-        bot.send_message(chat_id=update.message.chat_id, text=article['title'])
-        bot.send_photo(chat_id=update.message.chat_id, photo=article['img_url'])
-        bot.send_message(chat_id=update.message.chat_id, text=article['text'])
-        bot.send_message(chat_id=update.message.chat_id, text=article['url'])
+        bot.send_photo(chat_id=update.message.chat_id, photo=article['img_url'],
+                       caption='<b>{}. </b>'
+                               '<i>{} </i>'
+                               '<a href="{}">'
+                               'For more information click here</a>'.format(
+                           article['title'], article['text'], article['url']),
+                       parse_mode=ParseMode.HTML)
 
 
 def error(bot, update, error):
     logger.warning('Update "%s" caused error "%s"', update, error)
 
 
-def unknown(bot, update):
+def unknown_command(bot, update):
     bot.send_message(chat_id=update.message.chat_id,
-                     text="Sorry, I didn't understand that command."
-                          "Send /article or /joke or /article "
-                          "with your tag after.")
+                     text=messages['unknown_command'])
+
+
+def text(bot, update):
+    bot.send_message(chat_id=update.message.chat_id,
+                     text=messages['text'])
 
 
 def main():
@@ -126,12 +146,14 @@ def main():
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CommandHandler('joke', joke))
     dp.add_handler(CommandHandler('article', article, pass_args=True))
-    dp.add_handler(MessageHandler(Filters.command, unknown))
+    dp.add_handler(MessageHandler(Filters.command, unknown_command))
+    dp.add_handler(MessageHandler(Filters.text, text))
 
     dp.add_error_handler(error)
 
     updater.start_polling()
     updater.idle()
+
 
 if __name__ == '__main__':
     main()
