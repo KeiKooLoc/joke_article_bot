@@ -48,13 +48,14 @@ def get_url():
 
 # get random article from response
 def get_article(tag=None):
-    endpoint = get_url()
     if tag:
         endpoint = 'https://newsapi.org/v2/everything?' \
                    'q={}&' \
                    'pageSize=50&' \
                    'sortBy=relevancy&' \
                    'apiKey={}'.format(tag, api_key)
+    else:
+        endpoint = get_url()
     res = requests.get(endpoint).json()
     total = len(res['articles'])
     if total == 0 or res['status'] == 'error':
